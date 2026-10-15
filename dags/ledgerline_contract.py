@@ -20,6 +20,21 @@ def _build_validator() -> Draft202012Validator:
 EVENT_VALIDATOR = _build_validator()
 
 
+def parse_message_value(raw: bytes | None) -> Any:
+    """Decode a Kafka message value as JSON.
+
+    Raises ContractValidationError for tombstones (value is None), empty payloads,
+    non-UTF-8 bytes, and invalid JSON, so every bad message can be routed to the DLQ.
+    """
+
+    if raw is None:
+        raise ContractValidationError("message value is empty (tombstone)")
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ContractValidationError("message value must be UTF-8 JSON") from error
+
+
 def validate_event(payload: Any) -> dict[str, Any]:
     """Validate and return one version-1 Ledgerline event."""
 

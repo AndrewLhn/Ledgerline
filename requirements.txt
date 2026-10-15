@@ -1,3 +1,5 @@
 # Dependencies for the host-side producer and contract tests.
 confluent-kafka==2.12.2
 jsonschema==4.25.1
+# Required for the contract's "format": "date-time" to be enforced (otherwise silently skipped).
+rfc3339-validator==0.1.4

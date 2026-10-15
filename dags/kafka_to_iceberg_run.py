@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 import pyarrow as pa
 from confluent_kafka import Consumer, Producer
-from ledgerline_contract import ContractValidationError, validate_event
+from ledgerline_contract import ContractValidationError, parse_message_value, validate_event
 from pyiceberg.catalog import load_catalog
 from pyiceberg.exceptions import NoSuchTableError
 from pyiceberg.types import IntegerType, LongType, StringType
@@ -78,11 +78,7 @@ def get_table(catalog):
 
 
 def normalize_message(message) -> dict[str, object]:
-    try:
-        payload = json.loads(message.value().decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise ContractValidationError("message value must be UTF-8 JSON") from error
-
+    payload = parse_message_value(message.value())
     validated_event = validate_event(payload)
     return {
         "id": validated_event["id"],
@@ -108,7 +104,7 @@ def send_to_dlq(producer: Producer, message, error: Exception) -> None:
                 "topic": message.topic(),
                 "partition": message.partition(),
                 "offset": message.offset(),
-                "value": message.value().decode("utf-8", errors="replace"),
+                "value": (message.value() or b"").decode("utf-8", errors="replace"),
             }
         ).encode("utf-8"),
     )

@@ -4,3 +4,8 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+# The repo has no top-level airflow/ package once runtime logs are untracked; without this,
+# ruff's import classification depends on whether Docker has created ./airflow locally.
+known-third-party = ["airflow"]

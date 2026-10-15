@@ -1,6 +1,7 @@
 with daily_financial_events as (
     select
         cast(event_occurred_at as date) as metric_date,
+        currency,
         coalesce(
             sum(case when event_type = 'order_created' then amount end),
             cast(0 as decimal(18, 2))
@@ -14,11 +15,13 @@ with daily_financial_events as (
             cast(0 as decimal(18, 2))
         ) as refunded_amount
     from {{ ref('fct_ledgerline_events') }}
-    group by 1
+    where event_type in ('order_created', 'payment_captured', 'refund_issued')
+    group by 1, 2
 ),
 reconciled as (
     select
         metric_date,
+        currency,
         ordered_amount,
         captured_payment_amount,
         refunded_amount,

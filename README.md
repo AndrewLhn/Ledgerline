@@ -100,7 +100,7 @@ The E2E workflow verifies:
 | fct_kafka_events | Analytics event fact |
 | fct_ledgerline_events | Parsed order, payment, refund, and inventory fields |
 | mart_event_metrics_daily | Daily event metrics |
-| mart_daily_reconciliation | Daily net-cash and revenue comparison |
+| mart_daily_reconciliation | Daily net-cash and revenue comparison per currency |
 
 ## Checks
 
@@ -117,7 +117,7 @@ push and pull request. E2E runs on pull requests or manually.
 ## Notes
 
 - Raw ingestion is at-least-once. dbt deduplicates transformed facts by source event ID.
-- The supported runtime is Docker Compose. Terraform under infra is an archived prototype.
+- The supported runtime is Docker Compose.
 - The repository uses only synthetic data.
 
 ## Documentation

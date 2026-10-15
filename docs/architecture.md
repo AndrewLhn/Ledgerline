@@ -58,6 +58,6 @@ investigation; marts use the deduplicated event set.
 
 ## Runtime boundary
 
-Docker Compose is the supported runtime. The Terraform files are not a supported deployment.
+Docker Compose is the supported runtime.
 A production deployment would need isolated environments, secret management, network
 controls, monitoring, alerting, backups, and access policies.

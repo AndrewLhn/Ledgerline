@@ -16,5 +16,3 @@ The complete pipeline can be reproduced without cloud credentials or paid infras
 
 The project demonstrates local ingestion, storage, transformation, and validation. It does
 not represent a managed cloud deployment or its availability, security, and cost model.
-
-Terraform under infra remains an archived prototype.
