@@ -6,6 +6,10 @@ Notable changes to this project. Format loosely follows Keep a Changelog.
 
 ### Changed
 
+- Object storage: MinIO upstream was archived and its images deleted from
+  Docker Hub and Quay in September 2026; the stack now runs the pinned
+  `pgsty/silo` MinIO-compatible fork, and bucket bootstrap uses a plain S3
+  call (infra/minio/init-bucket.py) instead of the discontinued `mc` client.
 - Event contract: monetary amounts are integer minor units (`amount_minor`);
   the demo-only `id` field is gone; producers key messages by `event_id`
   (ADR-004, ADR-002).

@@ -88,3 +88,11 @@ Docker Compose is the only supported runtime. Compaction and orphan-file removal
 for Iceberg need Spark procedures and are out of scope locally; the maintenance
 DAG only expires snapshots. Network services run without TLS or SASL. See
 docs/security.md for the full posture and production gaps.
+
+Object storage: upstream MinIO was archived in 2026 and its images were removed
+from Docker Hub (September) and Quay (anonymous pulls closed). The stack runs
+the pinned Pigsty Silo fork (`pgsty/silo`, drop-in MinIO-compatible server and
+console) and bootstraps the warehouse bucket with a plain S3 call
+(infra/minio/init-bucket.py) instead of the discontinued `mc` client. If the
+fork stops tracking fixes, the next decision point is migrating to RustFS or
+Garage; the bucket bootstrap is vendor-neutral by design.
