@@ -12,8 +12,6 @@ models:
   - name: fct_kafka_events
     description: Analytics-ready, deduplicated Ledgerline event facts.
     columns:
-      - name: event_sequence
-        tests: [not_null, is_positive]
       - name: source_event_id
         tests: [not_null, unique]
       - name: event_type
@@ -26,6 +24,8 @@ models:
         tests: [not_null, not_future_timestamp]
       - name: event_ingested_at
         tests: [not_null, not_future_timestamp]
+      - name: ingestion_lag_seconds
+        tests: [not_null]
       - name: event_hash
         tests:
           - not_null
@@ -39,7 +39,7 @@ models:
         tests: [not_null, not_future_timestamp]
 
   - name: mart_event_metrics_daily
-    description: Daily Ledgerline event-volume and payload-cardinality metrics.
+    description: Daily Ledgerline event-volume, cardinality, and freshness metrics.
     columns:
       - name: metric_date
         tests: [not_null]
@@ -49,6 +49,11 @@ models:
         tests: [not_null, is_positive]
       - name: distinct_source_event_count
         tests: [not_null, is_positive]
+      - name: max_ingestion_lag_seconds
+        tests: [not_null]
+      - name: late_event_count
+        description: Events ingested more than one hour after occurrence.
+        tests: [not_null, is_non_negative]
 
   - name: fct_ledgerline_events
     description: Domain-ready financial and inventory events parsed from the Ledgerline envelope.
@@ -65,6 +70,26 @@ models:
         tests: [not_null, not_future_timestamp]
       - name: correlation_id
         tests: [not_null, not_empty_string]
+      - name: amount_minor
+        description: Monetary amount in minor currency units; null for non-financial events.
+      - name: amount
+        description: amount_minor converted to major units as decimal(18,2).
+
+  - name: mart_ingestion_health_daily
+    description: Daily ingestion batch counts, throughput, rejections, and durations.
+    columns:
+      - name: metric_date
+        tests: [not_null, unique]
+      - name: batch_count
+        tests: [not_null, is_positive]
+      - name: records_read
+        tests: [not_null, is_non_negative]
+      - name: records_written
+        tests: [not_null, is_non_negative]
+      - name: records_rejected
+        tests: [not_null, is_non_negative]
+      - name: max_batch_duration_ms
+        tests: [not_null, is_non_negative]
 
   - name: mart_daily_reconciliation
     description: Daily comparison of net captured cash and recognised revenue in the synthetic Ledgerline scenario.
@@ -77,3 +102,14 @@ models:
           - accepted_values:
               arguments:
                 values: ["passed", "failed"]
+
+exposures:
+  - name: finance_daily_reconciliation
+    type: notebook
+    description: Finance operations review of daily net cash versus recognised revenue.
+    owner:
+      name: Ledgerline data team
+      email: data-team@ledgerline.local
+    depends_on:
+      - ref('mart_daily_reconciliation')
+      - ref('mart_event_metrics_daily')

@@ -1,11 +1,10 @@
 with source_events as (
     select
-        cast(id as bigint) as event_sequence,
         event_id as source_event_id,
         event_type,
         cast(schema_version as integer) as schema_version,
-        from_iso8601_timestamp(occurred_at) as event_occurred_at,
-        from_iso8601_timestamp(ingested_at) as event_ingested_at,
+        cast(from_iso8601_timestamp(occurred_at) as timestamp) as event_occurred_at,
+        cast(ingested_at as timestamp) as event_ingested_at,
         source_system,
         correlation_id,
         trim(data) as event_payload,
@@ -24,12 +23,12 @@ deduplicated_events as (
 )
 
 select
-    event_sequence,
     source_event_id,
     event_type,
     schema_version,
     event_occurred_at,
     event_ingested_at,
+    date_diff('second', event_occurred_at, event_ingested_at) as ingestion_lag_seconds,
     source_system,
     correlation_id,
     event_payload,
