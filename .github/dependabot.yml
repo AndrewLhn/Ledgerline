@@ -8,6 +8,18 @@ updates:
     directory: "/dbt"
     schedule:
       interval: weekly
+  - package-ecosystem: pip
+    directory: "/infra"
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: "/dbt"
+    schedule:
+      interval: weekly
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
