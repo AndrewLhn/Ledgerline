@@ -6,6 +6,12 @@ Notable changes to this project. Format loosely follows Keep a Changelog.
 
 ### Changed
 
+- pyiceberg 0.6.0 -> 0.8.1: the 0.6 mmhash3 dependency ships no cp312 wheels
+  and cannot build on the Airflow image's Python 3.12, which broke the image
+  build in CI; 0.8.x uses mmh3 and keeps the pyarrow 14 range.
+- Snapshot expiry in the maintenance DAG is a real catalog commit
+  (RemoveSnapshotsUpdate with ref protection) instead of an API that pyiceberg
+  never shipped; expiry is metadata-only and says so (ADR-005).
 - Object storage: MinIO upstream was archived and its images deleted from
   Docker Hub and Quay in September 2026; the stack now runs the pinned
   `pgsty/silo` MinIO-compatible fork, and bucket bootstrap uses a plain S3
