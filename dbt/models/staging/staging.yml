@@ -19,19 +19,22 @@ sources:
             tests:
               - not_null
               - accepted_values:
-                  values: ["order_created", "payment_captured", "refund_issued", "inventory_adjusted"]
+                  arguments:
+                    values: ["order_created", "payment_captured", "refund_issued", "inventory_adjusted"]
           - name: schema_version
             tests:
               - not_null
               - accepted_values:
-                  values: [1]
+                  arguments:
+                    values: [1]
           - name: occurred_at
             tests: [not_null]
           - name: source_system
             tests:
               - not_null
               - accepted_values:
-                  values: ["storefront", "payment_gateway", "erp"]
+                  arguments:
+                    values: ["storefront", "payment_gateway", "erp"]
           - name: correlation_id
             tests: [not_null, not_empty_string]
           - name: kafka_partition
@@ -53,12 +56,14 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ["order_created", "payment_captured", "refund_issued", "inventory_adjusted"]
+              arguments:
+                values: ["order_created", "payment_captured", "refund_issued", "inventory_adjusted"]
       - name: schema_version
         tests:
           - not_null
           - accepted_values:
-              values: [1]
+              arguments:
+                values: [1]
       - name: event_occurred_at
         tests: [not_null, not_future_timestamp]
       - name: event_ingested_at
