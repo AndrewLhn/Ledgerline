@@ -9,6 +9,12 @@ Notable changes to this project. Format loosely follows Keep a Changelog.
 - Event contract: monetary amounts are integer minor units (`amount_minor`);
   the demo-only `id` field is gone; producers key messages by `event_id`
   (ADR-004, ADR-002).
+- Contract files are versioned and immutable: v1 was renamed to
+  kafka_event_v1.schema.json, validation dispatches on `schema_version`, and
+  v2 (payment `method`) demonstrates the bump process (ADR-008,
+  docs/contracts.md).
+- The consumer drains the topic within a time budget instead of capping at
+  100 messages per run, which silently bounded throughput at ~2.4k events/day.
 - Raw events table is partitioned by `days(ingested_at)` and stores
   `ingested_at` as timestamptz; existing local tables must be recreated
   (ADR-005).
@@ -31,6 +37,10 @@ Notable changes to this project. Format loosely follows Keep a Changelog.
   documented (ADR-007, docs/security.md).
 - Load generator and `make bench`; performance methodology in
   docs/performance.md.
+- Contract governance CI gate (immutability + self-consistency) with a
+  labeled exception process; Prometheus alert rules for lag, DLQ growth, and
+  stalled ingestion; design document with capacity model, failure-mode
+  analysis, and the 10x/100x/1000x scale narrative.
 - Backfill runbook; `make demo` one-command walkthrough; CHANGELOG.
 - Consumer failure-mode unit tests (append failure, DLQ flush timeout,
   malformed payloads), coverage reporting in CI, pre-commit config, Docker

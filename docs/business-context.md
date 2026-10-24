@@ -5,11 +5,13 @@
 | Event | Required business fields |
 | --- | --- |
 | order_created | order_id, customer_id, channel, currency, amount_minor |
-| payment_captured | payment_id, order_id, currency, amount_minor |
+| payment_captured | payment_id, order_id, currency, amount_minor; v2 adds method |
 | refund_issued | refund_id, payment_id, order_id, currency, amount_minor |
 | inventory_adjusted | adjustment_id, product_id, location_id, quantity_delta |
 
-The schema accepts version 1 only. Breaking changes require a new version.
+The schema accepts contract versions 1 and 2; v2 requires a payment `method`
+(card, wallet, bank_transfer). Contract files are immutable per version — any
+change, even additive, ships as a new version (docs/contracts.md, ADR-008).
 
 Monetary amounts travel as integer minor units (cents) and are stored that way
 in the fact table (`amount_minor`). Marts expose `amount` as decimal(18,2) for
