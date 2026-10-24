@@ -29,6 +29,21 @@ jobs:
         run: |
           python -m coverage run -m unittest discover -s tests -v
           python -m coverage report --include="dags/*,infra/*,scripts/*" --skip-empty
+      - name: Contract checks
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          CONTRACT_OVERRIDE: ${{ contains(github.event.pull_request.labels.*.name, 'contract-breaking') }}
+        run: |
+          args=""
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --depth=1 origin "$BASE_REF"
+            args="--base FETCH_HEAD"
+            if [ "$CONTRACT_OVERRIDE" = "true" ]; then
+              args="$args --allow-changes"
+            fi
+          fi
+          python scripts/check_contract_compat.py $args
       - run: python -c "from infra.producer import main"
       - run: ruff check dags infra scripts tests
       - name: Build Airflow image
