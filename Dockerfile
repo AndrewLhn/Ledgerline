@@ -1,15 +1,13 @@
-FROM apache/airflow:2.10.0
+FROM apache/airflow:3.3.2-python3.12
 
 USER airflow
 
 # Keep Iceberg dependencies separate from Airflow's own Python environment.
+# infra/requirements.txt is the single source of truth for these pins; dependabot
+# tracks it (pip) and the base image tag above (docker).
+COPY infra/requirements.txt /tmp/iceberg-requirements.txt
 RUN python -m venv /home/airflow/iceberg_env && \
-    /home/airflow/iceberg_env/bin/pip install --no-cache-dir \
-      confluent-kafka==2.12.2 \
-      jsonschema==4.25.1 \
-      numpy==1.26.4 \
-      pyarrow==14.0.1 \
-      "pyiceberg[sql-postgres,pyarrow]==0.6.0" \
-      psycopg2-binary==2.9.9
+    /home/airflow/iceberg_env/bin/pip install --no-cache-dir -r /tmp/iceberg-requirements.txt && \
+    rm /tmp/iceberg-requirements.txt
 
 COPY contracts /opt/airflow/contracts
