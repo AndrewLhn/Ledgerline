@@ -1,6 +1,9 @@
 services:
   airflow-db:
     image: postgres:15.8
+    ports:
+      # Exposed on loopback only, for infra/consumer.py host runs.
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
@@ -109,6 +112,14 @@ services:
     ports:
       - "8080:8080"
     command: standalone
+    healthcheck:
+      # CLI-based check: succeeds once the metadata DB is migrated and Airflow is
+      # usable. Version-agnostic (works on Airflow 2 and 3), unlike HTTP endpoints.
+      test: ["CMD-SHELL", "airflow dags list >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 120s
     volumes:
       - ./dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
