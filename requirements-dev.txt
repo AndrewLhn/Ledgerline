@@ -1,1 +1,5 @@
+# Dev tooling for host-side checks; runtime pins live in requirements.txt
+# and infra/requirements.txt.
+coverage==7.17.0
+pre-commit==4.7.0
 ruff==0.16.0
