@@ -27,12 +27,13 @@ services:
       PGUSER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
       PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       ICEBERG_CATALOG_DB: ${ICEBERG_CATALOG_DB:?set ICEBERG_CATALOG_DB in .env}
-    command:
-      - /bin/sh
-      - -ec
-      - |
-        until pg_isready -d postgres; do sleep 2; done
-        psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$$ICEBERG_CATALOG_DB'" | grep -q 1 || psql -d postgres -c "CREATE DATABASE \"$$ICEBERG_CATALOG_DB\""
+      ICEBERG_DB_USER: ${ICEBERG_DB_USER:?set ICEBERG_DB_USER in .env}
+      ICEBERG_DB_PASSWORD: ${ICEBERG_DB_PASSWORD:?set ICEBERG_DB_PASSWORD in .env}
+      TRINO_DB_USER: ${TRINO_DB_USER:?set TRINO_DB_USER in .env}
+      TRINO_DB_PASSWORD: ${TRINO_DB_PASSWORD:?set TRINO_DB_PASSWORD in .env}
+    volumes:
+      - ./infra/postgres/init-iceberg-db.sh:/init-iceberg-db.sh:ro
+    command: ["/bin/sh", "/init-iceberg-db.sh"]
     restart: "no"
     networks: [data-platform]
 
@@ -104,11 +105,13 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@airflow-db/${POSTGRES_DB:?set POSTGRES_DB in .env}
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
-      ICEBERG_CATALOG_URI: postgresql+psycopg2://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@airflow-db/${ICEBERG_CATALOG_DB:?set ICEBERG_CATALOG_DB in .env}
+      ICEBERG_CATALOG_URI: postgresql+psycopg2://${ICEBERG_DB_USER:?set ICEBERG_DB_USER in .env}:${ICEBERG_DB_PASSWORD:?set ICEBERG_DB_PASSWORD in .env}@airflow-db/${ICEBERG_CATALOG_DB:?set ICEBERG_CATALOG_DB in .env}
       ICEBERG_WAREHOUSE: s3://warehouse/
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      # Best effort: batch metrics are only pushed when the monitoring profile runs.
+      PUSHGATEWAY_URL: http://pushgateway:9091
     ports:
       - "8080:8080"
     command: standalone
@@ -138,8 +141,8 @@ services:
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
-      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      TRINO_DB_USER: ${TRINO_DB_USER:?set TRINO_DB_USER in .env}
+      TRINO_DB_PASSWORD: ${TRINO_DB_PASSWORD:?set TRINO_DB_PASSWORD in .env}
       ICEBERG_CATALOG_DB: ${ICEBERG_CATALOG_DB:?set ICEBERG_CATALOG_DB in .env}
     ports:
       - "8082:8080"
@@ -168,6 +171,46 @@ services:
       - ./dbt:/usr/app
     command: build
     profiles: [tools]
+    networks: [data-platform]
+
+  pushgateway:
+    image: prom/pushgateway:v1.9.0
+    ports:
+      - "9091:9091"
+    profiles: [monitoring]
+    networks: [data-platform]
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.9.0
+    command: ["--kafka.server=kafka:29092"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    profiles: [monitoring]
+    networks: [data-platform]
+
+  prometheus:
+    image: prom/prometheus:v3.9.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on: [pushgateway, kafka-exporter]
+    profiles: [monitoring]
+    networks: [data-platform]
+
+  grafana:
+    image: grafana/grafana:13.0.11
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-this-grafana-password}
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on: [prometheus]
+    profiles: [monitoring]
     networks: [data-platform]
 
 networks:
