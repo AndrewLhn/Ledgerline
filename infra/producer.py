@@ -36,7 +36,6 @@ def build_ledgerline_events(occurred_at: str | None = None) -> list[dict[str, An
 
     return [
         {
-            "id": 1,
             "event_id": "11111111-1111-4111-8111-111111111111",
             "event_type": "order_created",
             "schema_version": 1,
@@ -48,11 +47,10 @@ def build_ledgerline_events(occurred_at: str | None = None) -> list[dict[str, An
                 "customer_id": "cust_42",
                 "channel": "web",
                 "currency": "EUR",
-                "amount": 100.00
+                "amount_minor": 10000
             }
         },
         {
-            "id": 2,
             "event_id": "22222222-2222-4222-8222-222222222222",
             "event_type": "payment_captured",
             "schema_version": 1,
@@ -63,11 +61,10 @@ def build_ledgerline_events(occurred_at: str | None = None) -> list[dict[str, An
                 "payment_id": payment_id,
                 "order_id": order_id,
                 "currency": "EUR",
-                "amount": 100.00
+                "amount_minor": 10000
             }
         },
         {
-            "id": 3,
             "event_id": "33333333-3333-4333-8333-333333333333",
             "event_type": "refund_issued",
             "schema_version": 1,
@@ -79,11 +76,10 @@ def build_ledgerline_events(occurred_at: str | None = None) -> list[dict[str, An
                 "payment_id": payment_id,
                 "order_id": order_id,
                 "currency": "EUR",
-                "amount": 20.00
+                "amount_minor": 2000
             }
         },
         {
-            "id": 4,
             "event_id": "44444444-4444-4444-8444-444444444444",
             "event_type": "inventory_adjusted",
             "schema_version": 1,
@@ -100,15 +96,21 @@ def build_ledgerline_events(occurred_at: str | None = None) -> list[dict[str, An
     ]
 
 
-def build_messages(scenario: str) -> list[bytes]:
+def build_messages(scenario: str) -> list[tuple[str | None, bytes]]:
+    """Return (Kafka key, payload) pairs; the key keeps per-entity ordering."""
+
     events = build_ledgerline_events()
 
     if scenario == "ledgerline":
-        return [json.dumps(validate_event(event)).encode("utf-8") for event in events]
+        return [
+            (event["event_id"], json.dumps(validate_event(event)).encode("utf-8"))
+            for event in events
+        ]
     if scenario == "duplicate":
-        return [json.dumps(validate_event(events[1])).encode("utf-8")]
+        event = events[1]
+        return [(event["event_id"], json.dumps(validate_event(event)).encode("utf-8"))]
     if scenario == "invalid":
-        return [b'{"event_id": "not-a-valid-ledgerline-event"}']
+        return [(None, b'{"event_id": "not-a-valid-ledgerline-event"}')]
 
     raise ValueError(f"Unsupported scenario: {scenario}")
 
@@ -124,9 +126,13 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     producer = Producer({"bootstrap.servers": BOOTSTRAP_SERVERS})
-    messages = build_messages(args.scenario)
-    for message in messages:
-        producer.produce(TOPIC, message, on_delivery=delivery_report)
+    for key, message in build_messages(args.scenario):
+        producer.produce(
+            TOPIC,
+            message,
+            key=key.encode("utf-8") if key else None,
+            on_delivery=delivery_report,
+        )
 
     pending_messages = producer.flush(10)
     if pending_messages:
