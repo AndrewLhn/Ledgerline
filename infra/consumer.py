@@ -6,8 +6,9 @@ Prerequisites:
 
 Connection defaults match .env.example (PostgreSQL is exposed on 127.0.0.1:5432,
 MinIO on 127.0.0.1:9000, Kafka on localhost:9092). If you changed credentials in
-.env, export the same values (POSTGRES_USER, POSTGRES_PASSWORD, ICEBERG_CATALOG_DB,
-MINIO_ROOT_USER, MINIO_ROOT_PASSWORD) before running this script.
+.env, export the same values (ICEBERG_DB_USER, ICEBERG_DB_PASSWORD,
+ICEBERG_CATALOG_DB, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD) before running this
+script.
 """
 
 import os
@@ -21,8 +22,8 @@ for _path in (PROJECT_ROOT, PROJECT_ROOT / "dags"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-_postgres_user = os.getenv("POSTGRES_USER", "airflow")
-_postgres_password = os.getenv("POSTGRES_PASSWORD", "change-this-postgres-password")
+_postgres_user = os.getenv("ICEBERG_DB_USER", "iceberg")
+_postgres_password = os.getenv("ICEBERG_DB_PASSWORD", "change-this-iceberg-password")
 _iceberg_catalog_db = os.getenv("ICEBERG_CATALOG_DB", "iceberg_metadata")
 
 # kafka_to_iceberg_run reads its connection settings at import time,
