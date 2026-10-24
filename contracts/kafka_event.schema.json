@@ -4,7 +4,6 @@
   "description": "Version 1 envelope for synthetic Ledgerline operational events.",
   "type": "object",
   "required": [
-    "id",
     "event_id",
     "event_type",
     "schema_version",
@@ -14,11 +13,6 @@
     "data"
   ],
   "properties": {
-    "id": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Producer-local sequence used only by the demo."
-    },
     "event_id": {
       "type": "string",
       "format": "uuid",
@@ -62,13 +56,17 @@
       "then": {
         "properties": {
           "data": {
-            "required": ["order_id", "customer_id", "channel", "currency", "amount"],
+            "required": ["order_id", "customer_id", "channel", "currency", "amount_minor"],
             "properties": {
               "order_id": {"type": "string", "minLength": 1},
               "customer_id": {"type": "string", "minLength": 1},
               "channel": {"type": "string", "enum": ["web", "store", "marketplace"]},
               "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
-              "amount": {"type": "number", "exclusiveMinimum": 0}
+              "amount_minor": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "description": "Amount in minor units of the event currency (cents)."
+              }
             },
             "additionalProperties": false
           }
@@ -82,12 +80,16 @@
       "then": {
         "properties": {
           "data": {
-            "required": ["payment_id", "order_id", "currency", "amount"],
+            "required": ["payment_id", "order_id", "currency", "amount_minor"],
             "properties": {
               "payment_id": {"type": "string", "minLength": 1},
               "order_id": {"type": "string", "minLength": 1},
               "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
-              "amount": {"type": "number", "exclusiveMinimum": 0}
+              "amount_minor": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "description": "Amount in minor units of the event currency (cents)."
+              }
             },
             "additionalProperties": false
           }
@@ -101,13 +103,17 @@
       "then": {
         "properties": {
           "data": {
-            "required": ["refund_id", "payment_id", "order_id", "currency", "amount"],
+            "required": ["refund_id", "payment_id", "order_id", "currency", "amount_minor"],
             "properties": {
               "refund_id": {"type": "string", "minLength": 1},
               "payment_id": {"type": "string", "minLength": 1},
               "order_id": {"type": "string", "minLength": 1},
               "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
-              "amount": {"type": "number", "exclusiveMinimum": 0}
+              "amount_minor": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "description": "Amount in minor units of the event currency (cents)."
+              }
             },
             "additionalProperties": false
           }
