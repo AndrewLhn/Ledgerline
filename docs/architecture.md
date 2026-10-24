@@ -19,7 +19,8 @@ flowchart LR
 
 1. The producer validates the event against the JSON Schema and sends it to
    Kafka, keyed by `event_id` so one entity stays on one partition.
-2. The Airflow task decodes JSON and validates the event again, server-side.
+2. The Airflow task decodes JSON and validates the event again, server-side,
+   against the schema version the event declares.
 3. Invalid events go to ledgerline_events_dlq with the error and Kafka location.
 4. Valid events are appended to ledgerline_raw.events, partitioned by
    `days(ingested_at)`.
@@ -66,6 +67,7 @@ which is acceptable for operational metrics.
 | Kafka or task failure | Airflow retries the batch |
 | Duplicate source event | Deduplicate in dbt |
 | DLQ backlog after a fix | Replay with scripts/replay_dlq.py |
+| Producer schema drift | CI contract gate blocks; violations go to DLQ |
 | Metadata growth | iceberg_maintenance DAG expires old snapshots daily |
 | Reconciliation mismatch | Fail the dbt test |
 | E2E failure | Upload Compose logs in GitHub Actions |
@@ -76,7 +78,9 @@ The `monitoring` compose profile runs Prometheus, Grafana, Pushgateway, and a
 Kafka exporter. The consumer pushes per-batch metrics (read/written/rejected,
 duration) on a best-effort basis; ingestion never fails because metrics are
 unreachable. Durable batch history lives in ingestion_runs and is modelled by
-mart_ingestion_health_daily. See ADR-006.
+mart_ingestion_health_daily. Alert rules for lag, DLQ growth, and stalled
+ingestion live in monitoring/alerts.yml; routing them (Alertmanager, paging)
+is a production concern. See ADR-006.
 
 ## Runtime boundary
 

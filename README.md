@@ -40,8 +40,10 @@ inventory_adjusted
 
 Each event contains a source event ID (UUID), type, schema version, occurrence
 time, source system, correlation ID, and event-specific data. Monetary amounts
-are integer minor units (`amount_minor`, cents), never floats. The full schema
-is in [contracts/kafka_event.schema.json](contracts/kafka_event.schema.json).
+are integer minor units (`amount_minor`, cents), never floats. Two contract
+versions are registered: v1 and v2, where v2 requires a payment `method`.
+Schemas live in [contracts/](contracts/); files are immutable per version and
+CI rejects edits to a published one (docs/contracts.md).
 
 Messages are keyed by `event_id`, so one entity keeps its partition and order.
 Invalid payloads are sent to the ledgerline_events_dlq topic with the
@@ -109,11 +111,12 @@ python3 infra/consumer.py
 ~~~bash
 python3 infra/producer.py --scenario duplicate
 python3 infra/producer.py --scenario invalid
+python3 infra/producer.py --scenario v2
 ~~~
 
 The duplicate has an existing source event ID and is removed in the dbt
 staging model. The invalid payload is rejected by the consumer and written to
-the DLQ.
+the DLQ. The v2 payload is a payment with the contract-v2 `method` field.
 
 The E2E workflow verifies:
 
@@ -139,6 +142,8 @@ The E2E workflow verifies:
 ## Quality gates
 
 - Contract validation at the edge; invalid events never reach the warehouse.
+- Contract governance in CI: version files must be self-consistent, and a
+  published file cannot change without an explicit `contract-breaking` label.
 - dbt tests on every build: uniqueness, accepted values, financial
   completeness, reconciliation threshold (EUR 0.01), and a six-hour freshness
   SLO on ingestion lag.
@@ -151,7 +156,8 @@ The E2E workflow verifies:
 make monitoring-up
 ~~~
 
-Starts Prometheus, Grafana, Pushgateway, and a Kafka exporter. The Grafana
+Starts Prometheus, Grafana, Pushgateway, and a Kafka exporter, with alert
+rules for consumer lag, DLQ growth, and stalled ingestion. The Grafana
 dashboard (admin credentials from `.env`) shows consumer lag, DLQ size, and
 per-batch read/written/rejected counts. Durable batch history lives in
 `mart_ingestion_health_daily` and does not depend on the monitoring profile.
@@ -174,10 +180,10 @@ make lint
 make dbt-test
 ~~~
 
-CI runs configuration validation, unit tests with coverage, producer import
-validation, Ruff, and an image build on pushes to main and on pull requests.
-E2E runs on pull requests, pushes to main, or manually. `pre-commit install`
-enables the same lint locally.
+CI runs configuration validation, unit tests with coverage, contract checks,
+producer import validation, Ruff, and an image build on pushes to main and on
+pull requests. E2E runs on pull requests, pushes to main, or manually.
+`pre-commit install` enables the same lint locally.
 
 ## Production gaps
 
@@ -192,8 +198,10 @@ documented:
 
 ## Documentation
 
+- [Design document](docs/design.md) — requirements, capacity, failure modes, scale path
 - [Architecture](docs/architecture.md)
 - [Domain and reconciliation rules](docs/business-context.md)
+- [Contract governance](docs/contracts.md)
 - [Security posture](docs/security.md)
 - [Data-quality incident runbook](docs/runbooks/data-quality-incident.md)
 - [Backfill runbook](docs/runbooks/backfill.md)
