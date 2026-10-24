@@ -10,6 +10,3 @@ __pycache__
 airflow/logs
 dbt/logs
 dbt/target
-infra/.terraform
-infra/*.tfstate*
-infra/warehouse

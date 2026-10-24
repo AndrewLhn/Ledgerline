@@ -58,24 +58,7 @@ compose.override.yml
 docker-compose.override.yml
 minio_data/
 postgres_data/
-infra/warehouse/
-infra/iceberg_catalog.db
-infra/s3_sink_ready.json
-s3_sink_ready.json
-trino_error.txt
 *.log
-
-# Terraform: commit providers lock file, never state or local variables
-.terraform/
-*.tfstate
-*.tfstate.*
-*.tfvars
-*.tfvars.json
-!*.tfvars.example
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
 
 # Local data and operating-system temporary files
 *.sqlite
