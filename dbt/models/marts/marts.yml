@@ -20,7 +20,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ["order_created", "payment_captured", "refund_issued", "inventory_adjusted"]
+              arguments:
+                values: ["order_created", "payment_captured", "refund_issued", "inventory_adjusted"]
       - name: event_occurred_at
         tests: [not_null, not_future_timestamp]
       - name: event_ingested_at
@@ -29,8 +30,9 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_event_payloads')
-              field: event_hash
+              arguments:
+                to: ref('dim_event_payloads')
+                field: event_hash
       - name: event_payload
         tests: [not_null, not_empty_string]
       - name: transformed_at
@@ -57,7 +59,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ["order_created", "payment_captured", "refund_issued", "inventory_adjusted"]
+              arguments:
+                values: ["order_created", "payment_captured", "refund_issued", "inventory_adjusted"]
       - name: event_occurred_at
         tests: [not_null, not_future_timestamp]
       - name: correlation_id
@@ -72,4 +75,5 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ["passed", "failed"]
+              arguments:
+                values: ["passed", "failed"]
