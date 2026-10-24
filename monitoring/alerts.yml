@@ -1,0 +1,48 @@
+# Alerts are evaluated by the local Prometheus. Routing (Alertmanager, paging
+# policy, on-call) is a production concern and intentionally out of scope.
+groups:
+  - name: ledgerline-ingestion
+    rules:
+      - alert: ConsumerLagHigh
+        expr: sum by (consumergroup) (kafka_consumergroup_lag{topic="ledgerline_events"}) > 1000
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer lag above 1000 on ledgerline_events"
+          description: >-
+            Group {{ $labels.consumergroup }} is falling behind. Check the
+            ingestion DAG schedule, batch durations in mart_ingestion_health_daily,
+            and the run_sync time budget.
+
+      - alert: DlqGrowing
+        expr: sum(delta(kafka_topic_partition_current_offset{topic="ledgerline_events_dlq"}[30m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "DLQ received new messages"
+          description: >-
+            Contract violations are arriving. Inspect the DLQ and replay after
+            a fix (docs/runbooks/data-quality-incident.md).
+
+      - alert: IngestionStalled
+        expr: time() - push_time_seconds{job="ledgerline_ingest"} > 5400
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No ingestion batch reported for 90 minutes"
+          description: >-
+            The hourly batch pushes metrics after every non-empty run. Check
+            the DAG schedule and Airflow health.
+
+      - alert: IngestionNeverReported
+        expr: absent(push_time_seconds{job="ledgerline_ingest"})
+        for: 2h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ingestion has never pushed batch metrics"
+          description: >-
+            Covers the cold-start case IngestionStalled cannot see: no batch
+            has completed within two hours of the monitoring stack starting.

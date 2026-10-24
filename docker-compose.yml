@@ -195,6 +195,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
     depends_on: [pushgateway, kafka-exporter]
     profiles: [monitoring]
     networks: [data-platform]
