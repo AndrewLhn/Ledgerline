@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -218,8 +219,23 @@ def push_batch_metrics(records_read, records_written, rejected, duration_seconds
         LOGGER.warning("metrics_push_failed", exc_info=True)
 
 
-def run_sync(max_messages: int = 100, poll_timeout: float = 1.0) -> int:
+def run_sync(
+    max_messages: int = 100_000,
+    poll_timeout: float = 1.0,
+    idle_polls: int = 3,
+    time_budget_seconds: float = 240.0,
+) -> int:
+    """Drain the topic until it goes idle or the time budget runs out.
+
+    A fixed per-run message cap silently bounds throughput (100 messages an
+    hour is ~2.4k events/day), so the batch keeps reading while messages
+    arrive and stops after `idle_polls` consecutive empty polls. The budget
+    leaves headroom under the Airflow execution timeout for the Iceberg
+    append, offset commit, and audit write.
+    """
+
     started_at = datetime.now(UTC)
+    deadline = time.monotonic() + time_budget_seconds
     catalog = get_catalog()
     table = get_table(catalog)
     consumer = Consumer(
@@ -236,13 +252,18 @@ def run_sync(max_messages: int = 100, poll_timeout: float = 1.0) -> int:
     batch: list[dict[str, object]] = []
     records_read = 0
     rejected_count = 0
+    idle = 0
     try:
-        for _ in range(max_messages):
+        while records_read < max_messages and time.monotonic() < deadline:
             message = consumer.poll(poll_timeout)
             if message is None:
-                break
+                idle += 1
+                if idle >= idle_polls:
+                    break
+                continue
             if message.error():
                 raise RuntimeError(f"Kafka error: {message.error()}")
+            idle = 0
             records_read += 1
             try:
                 batch.append(normalize_message(message))

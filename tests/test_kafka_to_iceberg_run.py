@@ -105,7 +105,7 @@ class FakeTable:
         self.appended.append(arrow_table)
 
 
-def run_with_fakes(script, dlq_flush_pending=0, append_fails=False):
+def run_with_fakes(script, dlq_flush_pending=0, append_fails=False, **run_kwargs):
     """Execute run_sync against fakes; return (result, exception, objects)."""
 
     consumer = FakeConsumer(script)
@@ -127,7 +127,7 @@ def run_with_fakes(script, dlq_flush_pending=0, append_fails=False):
     try:
         result, error = None, None
         try:
-            result = consumer_mod.run_sync()
+            result = consumer_mod.run_sync(**run_kwargs)
         except Exception as exc:  # noqa: BLE001 - asserted per test
             error = exc
     finally:
@@ -225,6 +225,32 @@ class RunSyncTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertEqual(objects["events_table"].appended, [])
         self.assertEqual(objects["runs_table"].appended, [])
+        self.assertEqual(objects["consumer"].committed, 1)
+
+    def test_drain_continues_across_idle_gaps(self):
+        script = [
+            valid_message(VALID_EVENTS[0], 1),
+            None,
+            valid_message(VALID_EVENTS[1], 2),
+            None,
+            None,
+            None,
+        ]
+
+        result, error, objects = run_with_fakes(script)
+
+        self.assertIsNone(error)
+        self.assertEqual(result, 2)
+        self.assertEqual(objects["events_table"].appended[0].num_rows, 2)
+
+    def test_time_budget_stops_the_batch(self):
+        script = [valid_message(VALID_EVENTS[0], 1)]
+
+        result, error, objects = run_with_fakes(script, time_budget_seconds=0.0)
+
+        self.assertIsNone(error)
+        self.assertEqual(result, 0)
+        self.assertEqual(objects["events_table"].appended, [])
         self.assertEqual(objects["consumer"].committed, 1)
 
 
