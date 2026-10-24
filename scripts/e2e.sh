@@ -62,6 +62,10 @@ check_eq "deduplicated_fact_rows" \
   "$(query_scalar "SELECT count(*) FROM iceberg.analytics.fct_kafka_events")" "4"
 check_eq "reconciliation_status" \
   "$(query_scalar "SELECT reconciliation_status FROM iceberg.analytics.mart_daily_reconciliation")" "passed"
+check_eq "audit_records_written" \
+  "$(query_scalar "SELECT sum(records_written) FROM iceberg.analytics.stg_ingestion_runs")" "5"
+check_eq "audit_records_rejected" \
+  "$(query_scalar "SELECT sum(records_rejected) FROM iceberg.analytics.stg_ingestion_runs")" "1"
 
 # kafka-console-consumer exits 1 on --timeout-ms expiry, which is the normal path here.
 dlq_output="$("${compose[@]}" exec -T kafka kafka-console-consumer \
