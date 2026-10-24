@@ -56,6 +56,7 @@ Local endpoints:
 | MinIO | http://localhost:9001 |
 | Trino | http://localhost:8082 |
 | Kafka | localhost:9092 |
+| PostgreSQL | 127.0.0.1:5432 (loopback only) |
 
 Publish the sample flow and run ingestion:
 
@@ -63,6 +64,13 @@ Publish the sample flow and run ingestion:
 python3 infra/producer.py --scenario ledgerline
 docker compose exec airflow-standalone airflow dags trigger kafka_to_iceberg
 make dbt-build
+~~~
+
+To run one ingestion batch on the host instead of triggering the DAG:
+
+~~~bash
+python3 -m pip install -r infra/requirements.txt
+python3 infra/consumer.py
 ~~~
 
 Check the reconciliation result:
@@ -112,12 +120,12 @@ make dbt-test
 ~~~
 
 CI runs configuration validation, unit tests, producer import validation, and Ruff on every
-push and pull request. E2E runs on pull requests or manually.
+push and pull request. E2E runs on pull requests, pushes to main, or manually.
 
 ## Notes
 
 - Raw ingestion is at-least-once. dbt deduplicates transformed facts by source event ID.
-- The supported runtime is Docker Compose. Terraform under infra is an archived prototype.
+- The supported runtime is Docker Compose.
 - The repository uses only synthetic data.
 
 ## Documentation
