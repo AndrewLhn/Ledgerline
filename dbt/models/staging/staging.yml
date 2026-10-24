@@ -24,7 +24,7 @@ sources:
               - not_null
               - accepted_values:
                   arguments:
-                    values: [1]
+                    values: [1, 2]
           - name: occurred_at
             tests: [not_null]
           - name: source_system
@@ -76,7 +76,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: [1]
+                values: [1, 2]
       - name: event_occurred_at
         tests: [not_null, not_future_timestamp]
       - name: event_ingested_at
