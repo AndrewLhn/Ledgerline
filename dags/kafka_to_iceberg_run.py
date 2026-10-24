@@ -2,47 +2,29 @@ import json
 import logging
 import os
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import pyarrow as pa
 from confluent_kafka import Consumer, Producer
 from ledgerline_contract import ContractValidationError, validate_event
-from pyiceberg.catalog import load_catalog
-from pyiceberg.exceptions import NoSuchTableError
-from pyiceberg.types import IntegerType, LongType, StringType
 
 TABLE_IDENTIFIER = "ledgerline_raw.events"
+RUNS_TABLE_IDENTIFIER = "ledgerline_raw.ingestion_runs"
 TOPIC = os.getenv("KAFKA_TOPIC", "ledgerline_events")
 DLQ_TOPIC = os.getenv("KAFKA_DLQ_TOPIC", f"{TOPIC}_dlq")
 BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
 CONSUMER_GROUP = os.getenv("KAFKA_CONSUMER_GROUP", "ledgerline-iceberg-consumer")
+PUSHGATEWAY_URL = os.getenv("PUSHGATEWAY_URL", "")
 LOGGER = logging.getLogger(__name__)
-EVENT_SCHEMA = pa.schema([
-    ("id", pa.int64()),
-    ("data", pa.string()),
-    ("event_id", pa.string()),
-    ("event_type", pa.string()),
-    ("schema_version", pa.int32()),
-    ("occurred_at", pa.string()),
-    ("source_system", pa.string()),
-    ("correlation_id", pa.string()),
-    ("kafka_partition", pa.int32()),
-    ("kafka_offset", pa.int64()),
-    ("ingested_at", pa.string()),
-])
-REQUIRED_COLUMNS = {
-    "event_id": StringType(),
-    "event_type": StringType(),
-    "schema_version": IntegerType(),
-    "occurred_at": StringType(),
-    "source_system": StringType(),
-    "correlation_id": StringType(),
-    "kafka_partition": IntegerType(),
-    "kafka_offset": LongType(),
-    "ingested_at": StringType(),
-}
+
+INGESTED_AT_FIELD_ID = 9
+INGESTED_AT_PARTITION_FIELD_ID = 1000
 
 
 def get_catalog():
+    # Imported lazily: the host test suite runs without pyiceberg installed.
+    from pyiceberg.catalog import load_catalog
+
     return load_catalog(
         "default",
         **{
@@ -59,22 +41,99 @@ def get_catalog():
     )
 
 
+def event_table_schema():
+    from pyiceberg.schema import Schema
+    from pyiceberg.types import (
+        IntegerType,
+        LongType,
+        NestedField,
+        StringType,
+        TimestamptzType,
+    )
+
+    return Schema(
+        NestedField(1, "event_id", StringType()),
+        NestedField(2, "event_type", StringType()),
+        NestedField(3, "schema_version", IntegerType()),
+        NestedField(4, "occurred_at", StringType()),
+        NestedField(5, "source_system", StringType()),
+        NestedField(6, "correlation_id", StringType()),
+        NestedField(7, "kafka_partition", IntegerType()),
+        NestedField(8, "kafka_offset", LongType()),
+        NestedField(INGESTED_AT_FIELD_ID, "ingested_at", TimestamptzType()),
+    )
+
+
+def event_arrow_schema():
+    from pyiceberg.io.pyarrow import schema_to_pyarrow
+
+    return schema_to_pyarrow(event_table_schema())
+
+
+def runs_table_schema():
+    from pyiceberg.schema import Schema
+    from pyiceberg.types import LongType, NestedField, StringType, TimestamptzType
+
+    return Schema(
+        NestedField(1, "run_id", StringType()),
+        NestedField(2, "started_at", TimestamptzType()),
+        NestedField(3, "finished_at", TimestamptzType()),
+        NestedField(4, "records_read", LongType()),
+        NestedField(5, "records_written", LongType()),
+        NestedField(6, "records_rejected", LongType()),
+    )
+
+
+def runs_arrow_schema():
+    from pyiceberg.io.pyarrow import schema_to_pyarrow
+
+    return schema_to_pyarrow(runs_table_schema())
+
+
 def get_table(catalog):
+    from pyiceberg.exceptions import NoSuchTableError
+    from pyiceberg.partitioning import PartitionField, PartitionSpec
+    from pyiceberg.transforms import DayTransform
+
     if not catalog.namespace_exists("ledgerline_raw"):
         catalog.create_namespace("ledgerline_raw")
 
+    schema = event_table_schema()
     try:
         table = catalog.load_table(TABLE_IDENTIFIER)
     except NoSuchTableError:
-        return catalog.create_table(TABLE_IDENTIFIER, schema=EVENT_SCHEMA)
+        # Partition by ingestion day so maintenance can expire old snapshots
+        # and batches stay small; the raw layer is scanned by day, not by event.
+        spec = PartitionSpec(
+            PartitionField(
+                source_id=INGESTED_AT_FIELD_ID,
+                field_id=INGESTED_AT_PARTITION_FIELD_ID,
+                transform=DayTransform(),
+                name="ingested_at_day",
+            )
+        )
+        return catalog.create_table(TABLE_IDENTIFIER, schema=schema, partition_spec=spec)
 
+    expected_columns = {field.name for field in schema.fields}
     existing_columns = set(table.schema().column_names)
-    missing_columns = REQUIRED_COLUMNS.keys() - existing_columns
+    missing_columns = expected_columns - existing_columns
     if missing_columns:
         with table.update_schema() as update:
-            for column_name in sorted(missing_columns):
-                update.add_column(column_name, REQUIRED_COLUMNS[column_name])
+            for field in schema.fields:
+                if field.name in missing_columns:
+                    update.add_column(field.name, field.field_type)
     return catalog.load_table(TABLE_IDENTIFIER)
+
+
+def get_runs_table(catalog):
+    from pyiceberg.exceptions import NoSuchTableError
+
+    if not catalog.namespace_exists("ledgerline_raw"):
+        catalog.create_namespace("ledgerline_raw")
+    try:
+        return catalog.load_table(RUNS_TABLE_IDENTIFIER)
+    except NoSuchTableError:
+        return catalog.create_table(RUNS_TABLE_IDENTIFIER, schema=runs_table_schema())
 
 
 def normalize_message(message) -> dict[str, object]:
@@ -85,8 +144,6 @@ def normalize_message(message) -> dict[str, object]:
 
     validated_event = validate_event(payload)
     return {
-        "id": validated_event["id"],
-        "data": json.dumps(validated_event["data"], separators=(",", ":"), sort_keys=True),
         "event_id": validated_event["event_id"],
         "event_type": validated_event["event_type"],
         "schema_version": validated_event["schema_version"],
@@ -95,7 +152,7 @@ def normalize_message(message) -> dict[str, object]:
         "correlation_id": validated_event["correlation_id"],
         "kafka_partition": message.partition(),
         "kafka_offset": message.offset(),
-        "ingested_at": datetime.now(UTC).isoformat(),
+        "ingested_at": datetime.now(UTC),
     }
 
 
@@ -115,7 +172,54 @@ def send_to_dlq(producer: Producer, message, error: Exception) -> None:
     producer.poll(0)
 
 
+def record_run(catalog, started_at, finished_at, records_read, records_written, rejected):
+    """Append one audit row per non-empty batch. Best effort: ingestion must not
+    fail because the audit trail is unavailable."""
+
+    try:
+        runs_table = get_runs_table(catalog)
+        runs_table.append(
+            pa.Table.from_pylist(
+                [
+                    {
+                        "run_id": str(uuid4()),
+                        "started_at": started_at,
+                        "finished_at": finished_at,
+                        "records_read": records_read,
+                        "records_written": records_written,
+                        "records_rejected": rejected,
+                    }
+                ],
+                schema=runs_arrow_schema(),
+            )
+        )
+    except Exception:
+        LOGGER.warning("ingestion_run_audit_failed", exc_info=True)
+
+
+def push_batch_metrics(records_read, records_written, rejected, duration_seconds):
+    if not PUSHGATEWAY_URL:
+        return
+    try:
+        from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+
+        registry = CollectorRegistry()
+        for name, value, doc in (
+            ("records_read", records_read, "Messages polled in the batch"),
+            ("records_written", records_written, "Messages appended to Iceberg"),
+            ("records_rejected", rejected, "Messages sent to the DLQ"),
+            ("duration_seconds", duration_seconds, "Batch wall time"),
+        ):
+            Gauge(f"ledgerline_batch_{name}", doc, registry=registry).set(value)
+        push_to_gateway(
+            PUSHGATEWAY_URL, job="ledgerline_ingest", registry=registry, timeout=5
+        )
+    except Exception:
+        LOGGER.warning("metrics_push_failed", exc_info=True)
+
+
 def run_sync(max_messages: int = 100, poll_timeout: float = 1.0) -> int:
+    started_at = datetime.now(UTC)
     catalog = get_catalog()
     table = get_table(catalog)
     consumer = Consumer(
@@ -130,6 +234,7 @@ def run_sync(max_messages: int = 100, poll_timeout: float = 1.0) -> int:
     consumer.subscribe([TOPIC])
 
     batch: list[dict[str, object]] = []
+    records_read = 0
     rejected_count = 0
     try:
         for _ in range(max_messages):
@@ -138,6 +243,7 @@ def run_sync(max_messages: int = 100, poll_timeout: float = 1.0) -> int:
                 break
             if message.error():
                 raise RuntimeError(f"Kafka error: {message.error()}")
+            records_read += 1
             try:
                 batch.append(normalize_message(message))
             except ContractValidationError as error:
@@ -153,12 +259,23 @@ def run_sync(max_messages: int = 100, poll_timeout: float = 1.0) -> int:
             raise RuntimeError(f"Timed out delivering {pending_dlq_messages} DLQ message(s)")
 
         if batch:
-            table.append(pa.Table.from_pylist(batch, schema=EVENT_SCHEMA))
+            table.append(pa.Table.from_pylist(batch, schema=event_arrow_schema()))
         consumer.commit(asynchronous=False)
+        finished_at = datetime.now(UTC)
         LOGGER.info(
             "kafka_batch_committed",
             extra={"records_written": len(batch), "records_rejected": rejected_count},
         )
+        if records_read:
+            record_run(
+                catalog, started_at, finished_at, records_read, len(batch), rejected_count
+            )
+            push_batch_metrics(
+                records_read,
+                len(batch),
+                rejected_count,
+                (finished_at - started_at).total_seconds(),
+            )
         return len(batch)
     finally:
         consumer.close()
