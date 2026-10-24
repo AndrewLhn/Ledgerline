@@ -21,7 +21,7 @@ dbt tests. Everything runs on Docker Compose with synthetic data.
 | --- | --- |
 | Kafka | Event transport and dead-letter topic |
 | Airflow | Batch ingestion, retries, table maintenance |
-| Iceberg + MinIO | Raw event storage and audit trail |
+| Iceberg + Silo (MinIO-compatible fork) | Raw event storage and audit trail |
 | Trino | SQL query engine |
 | dbt | Event models, quality checks, and reconciliation |
 | Prometheus + Grafana | Lag, DLQ, and batch metrics (optional profile) |
@@ -66,7 +66,7 @@ Local endpoints:
 | Service | Address |
 | --- | --- |
 | Airflow | http://localhost:8080 |
-| MinIO | http://localhost:9001 |
+| MinIO console | http://localhost:9001 |
 | Trino | http://localhost:8082 |
 | Kafka | localhost:9092 |
 | PostgreSQL | 127.0.0.1:5432 (loopback only) |
