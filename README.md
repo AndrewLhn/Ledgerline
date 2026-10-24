@@ -40,7 +40,8 @@ Kafka location.
 
 ## Run locally
 
-Requirements: Docker, Docker Compose, and Python 3.12+.
+Requirements: Docker, Docker Compose, and Python 3.12 (host dependencies are pinned to
+3.12 wheels).
 
 ~~~bash
 python3 -m pip install -r requirements.txt
@@ -58,6 +59,13 @@ Local endpoints:
 | Kafka | localhost:9092 |
 | PostgreSQL | 127.0.0.1:5432 (loopback only) |
 
+Airflow standalone creates an `admin` user on first start. Print the generated password
+with:
+
+~~~bash
+docker compose exec airflow-standalone cat /opt/airflow/standalone_admin_password.txt
+~~~
+
 Publish the sample flow and run ingestion:
 
 ~~~bash
@@ -73,7 +81,8 @@ python3 -m pip install -r infra/requirements.txt
 python3 infra/consumer.py
 ~~~
 
-Check the reconciliation result:
+Check the reconciliation result (open a Trino shell with
+`docker compose exec -it trino trino`):
 
 ~~~sql
 SELECT *
@@ -107,6 +116,7 @@ The E2E workflow verifies:
 | stg_kafka_events | Typed and deduplicated event envelope |
 | fct_kafka_events | Analytics event fact |
 | fct_ledgerline_events | Parsed order, payment, refund, and inventory fields |
+| dim_event_payloads | Distinct event payloads keyed by content hash |
 | mart_event_metrics_daily | Daily event metrics |
 | mart_daily_reconciliation | Daily net-cash and revenue comparison |
 
@@ -119,8 +129,8 @@ make lint
 make dbt-test
 ~~~
 
-CI runs configuration validation, unit tests, producer import validation, and Ruff on every
-push and pull request. E2E runs on pull requests, pushes to main, or manually.
+CI runs configuration validation, unit tests, producer import validation, and Ruff on pushes
+to main and on pull requests. E2E runs on pull requests, pushes to main, or manually.
 
 ## Notes
 
