@@ -5,7 +5,8 @@ USER airflow
 # Keep Iceberg dependencies separate from Airflow's own Python environment.
 # infra/requirements.txt is the single source of truth for these pins; dependabot
 # tracks it (pip) and the base image tag above (docker).
-COPY infra/requirements.txt /tmp/iceberg-requirements.txt
+# --chown so the airflow user can remove the scratch copy (/tmp is sticky).
+COPY --chown=airflow:airflow infra/requirements.txt /tmp/iceberg-requirements.txt
 RUN python -m venv /home/airflow/iceberg_env && \
     /home/airflow/iceberg_env/bin/pip install --no-cache-dir -r /tmp/iceberg-requirements.txt && \
     rm /tmp/iceberg-requirements.txt
