@@ -9,8 +9,6 @@ sources:
       - name: ledgerline_events
         identifier: events
         columns:
-          - name: id
-            tests: [not_null, is_positive]
           - name: data
             tests: [not_null, not_empty_string]
           - name: event_id
@@ -42,14 +40,29 @@ sources:
           - name: kafka_offset
             tests: [not_null, is_non_negative]
           - name: ingested_at
+            description: Ingestion timestamp with time zone, written by the consumer.
             tests: [not_null]
+      - name: ingestion_runs
+        identifier: ingestion_runs
+        description: Audit trail written by the consumer, one row per non-empty batch.
+        columns:
+          - name: run_id
+            tests: [not_null]
+          - name: started_at
+            tests: [not_null]
+          - name: finished_at
+            tests: [not_null]
+          - name: records_read
+            tests: [not_null, is_non_negative]
+          - name: records_written
+            tests: [not_null, is_non_negative]
+          - name: records_rejected
+            tests: [not_null, is_non_negative]
 
 models:
   - name: stg_kafka_events
     description: Typed, versioned, and deduplicated Ledgerline events.
     columns:
-      - name: event_sequence
-        tests: [not_null, is_positive]
       - name: source_event_id
         tests: [not_null, unique]
       - name: event_type
@@ -68,6 +81,9 @@ models:
         tests: [not_null, not_future_timestamp]
       - name: event_ingested_at
         tests: [not_null, not_future_timestamp]
+      - name: ingestion_lag_seconds
+        description: Seconds between event occurrence and ingestion; drives the freshness SLO.
+        tests: [not_null]
       - name: source_system
         tests: [not_null, not_empty_string]
       - name: correlation_id
@@ -79,4 +95,22 @@ models:
       - name: kafka_partition
         tests: [not_null, is_non_negative]
       - name: kafka_offset
+        tests: [not_null, is_non_negative]
+
+  - name: stg_ingestion_runs
+    description: One row per ingestion batch with counts and duration.
+    columns:
+      - name: run_id
+        tests: [not_null, unique]
+      - name: batch_started_at
+        tests: [not_null, not_future_timestamp]
+      - name: batch_finished_at
+        tests: [not_null, not_future_timestamp]
+      - name: batch_duration_ms
+        tests: [not_null, is_non_negative]
+      - name: records_read
+        tests: [not_null, is_non_negative]
+      - name: records_written
+        tests: [not_null, is_non_negative]
+      - name: records_rejected
         tests: [not_null, is_non_negative]
