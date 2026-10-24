@@ -1,3 +1,7 @@
-# Dependencies for the host-side producer and contract tests.
+# Host-side dependencies for the producer, replay tooling, and tests.
+# pyarrow is needed by the consumer unit tests, which exercise real Arrow
+# batches; numpy stays below 2 because pyarrow 14 is built against numpy 1.x.
 confluent-kafka==2.12.2
 jsonschema==4.25.1
+numpy==1.26.4
+pyarrow==14.0.1
