@@ -24,6 +24,7 @@ select
     json_extract_scalar(event_data, '$.product_id') as product_id,
     json_extract_scalar(event_data, '$.location_id') as location_id,
     json_extract_scalar(event_data, '$.currency') as currency,
+    json_extract_scalar(event_data, '$.method') as payment_method,
     amount_minor,
     cast(cast(amount_minor as decimal(18, 2)) / 100 as decimal(18, 2)) as amount,
     try_cast(json_extract_scalar(event_data, '$.quantity_delta') as integer) as quantity_delta,

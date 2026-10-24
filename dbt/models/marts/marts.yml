@@ -74,6 +74,8 @@ models:
         description: Monetary amount in minor currency units; null for non-financial events.
       - name: amount
         description: amount_minor converted to major units as decimal(18,2).
+      - name: payment_method
+        description: Contract v2 payment method (card, wallet, bank_transfer); null for v1 events.
 
   - name: mart_ingestion_health_daily
     description: Daily ingestion batch counts, throughput, rejections, and durations.

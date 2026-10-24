@@ -96,6 +96,27 @@ def build_ledgerline_events(occurred_at: str | None = None) -> list[dict[str, An
     ]
 
 
+def build_v2_payment(occurred_at: str | None = None) -> dict[str, Any]:
+    """A version-2 payment: identical to v1 plus the required method field."""
+
+    timestamp = occurred_at or (datetime.now(UTC) - timedelta(minutes=5)).isoformat()
+    return {
+        "event_id": "55555555-5555-4555-8555-555555555555",
+        "event_type": "payment_captured",
+        "schema_version": 2,
+        "occurred_at": timestamp,
+        "source_system": "payment_gateway",
+        "correlation_id": "ord_1002",
+        "data": {
+            "payment_id": "pay_1002",
+            "order_id": "ord_1002",
+            "currency": "EUR",
+            "amount_minor": 5000,
+            "method": "card",
+        },
+    }
+
+
 def build_messages(scenario: str) -> list[tuple[str | None, bytes]]:
     """Return (Kafka key, payload) pairs; the key keeps per-entity ordering."""
 
@@ -109,6 +130,9 @@ def build_messages(scenario: str) -> list[tuple[str | None, bytes]]:
     if scenario == "duplicate":
         event = events[1]
         return [(event["event_id"], json.dumps(validate_event(event)).encode("utf-8"))]
+    if scenario == "v2":
+        event = build_v2_payment()
+        return [(event["event_id"], json.dumps(validate_event(event)).encode("utf-8"))]
     if scenario == "invalid":
         return [(None, b'{"event_id": "not-a-valid-ledgerline-event"}')]
 
@@ -119,7 +143,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Publish synthetic Ledgerline events to Kafka.")
     parser.add_argument(
         "--scenario",
-        choices=["ledgerline", "duplicate", "invalid"],
+        choices=["ledgerline", "duplicate", "v2", "invalid"],
         default="ledgerline",
         help="Synthetic message set to publish."
     )

@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LedgerlineEventV2",
+  "description": "Version 2 envelope: payment_captured gains a required method field; all other events match version 1.",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "source_system",
+    "correlation_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Immutable source event identifier."
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "order_created",
+        "payment_captured",
+        "refund_issued",
+        "inventory_adjusted"
+      ]
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 2
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_system": {
+      "type": "string",
+      "enum": ["storefront", "payment_gateway", "erp"]
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Business correlation key, usually an order identifier."
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"event_type": {"const": "order_created"}}
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "required": ["order_id", "customer_id", "channel", "currency", "amount_minor"],
+            "properties": {
+              "order_id": {"type": "string", "minLength": 1},
+              "customer_id": {"type": "string", "minLength": 1},
+              "channel": {"type": "string", "enum": ["web", "store", "marketplace"]},
+              "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+              "amount_minor": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "description": "Amount in minor units of the event currency (cents)."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"event_type": {"const": "payment_captured"}}
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "required": ["payment_id", "order_id", "currency", "amount_minor", "method"],
+            "properties": {
+              "payment_id": {"type": "string", "minLength": 1},
+              "order_id": {"type": "string", "minLength": 1},
+              "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+              "amount_minor": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "description": "Amount in minor units of the event currency (cents)."
+              },
+              "method": {
+                "type": "string",
+                "enum": ["card", "wallet", "bank_transfer"]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"event_type": {"const": "refund_issued"}}
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "required": ["refund_id", "payment_id", "order_id", "currency", "amount_minor"],
+            "properties": {
+              "refund_id": {"type": "string", "minLength": 1},
+              "payment_id": {"type": "string", "minLength": 1},
+              "order_id": {"type": "string", "minLength": 1},
+              "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+              "amount_minor": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "description": "Amount in minor units of the event currency (cents)."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"event_type": {"const": "inventory_adjusted"}}
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "required": ["adjustment_id", "product_id", "location_id", "quantity_delta"],
+            "properties": {
+              "adjustment_id": {"type": "string", "minLength": 1},
+              "product_id": {"type": "string", "minLength": 1},
+              "location_id": {"type": "string", "minLength": 1},
+              "quantity_delta": {"type": "integer", "not": {"const": 0}}
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}
