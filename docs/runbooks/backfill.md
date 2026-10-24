@@ -38,8 +38,9 @@ docker compose exec airflow-standalone airflow dags trigger kafka_to_iceberg
 make dbt-build
 ~~~
 
-Repeat the trigger until the consumer reports an empty batch (each run reads at
-most 100 messages).
+Repeat the trigger if the backlog is larger than one run's time budget (each
+run drains until polls come back empty or four minutes pass); the audit table
+shows when batches return 0 records.
 
 ## Verify
 

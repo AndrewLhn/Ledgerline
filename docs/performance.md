@@ -28,21 +28,22 @@ Measurements to record:
 
 ## Known overheads
 
-- Each batch run is a separate process: consumer group join plus Iceberg
-  catalog load cost roughly a second per batch. Draining 10k events in batches
-  of 100 therefore spends most wall time on group joins, not on I/O. A resident
-  consumer removes this; the batch model was chosen for Airflow-native retries
-  (ADR-001).
-- Every batch writes at least one data file per partition. Small files
-  accumulate until snapshot expiry; production deployments should add Spark
-  rewrite_data_files (see ADR-005).
+- Each run is a separate process: one consumer group join and one Iceberg
+  catalog load, roughly a second. A run drains the topic until polls come
+  back empty or the time budget (4 minutes by default) expires, so join cost
+  is paid per schedule tick, not per hundred messages. A resident consumer
+  would remove it entirely; the batch model was chosen for Airflow-native
+  retries (ADR-001).
+- Every run writes at least one data file per touched day partition. Small
+  files accumulate until snapshot expiry; production deployments should add
+  Spark rewrite_data_files (see ADR-005).
 
 ## Tuning levers
 
 | Lever | Where | Effect |
 | --- | --- | --- |
-| max_messages / poll_timeout | run_sync() defaults | Batch size vs latency |
-| DAG schedule | kafka_to_iceberg_dag.py | Freshness vs batch count |
+| time_budget_seconds / idle_polls | run_sync() defaults | How long a run drains vs Airflow execution timeout |
+| DAG schedule | kafka_to_iceberg_dag.py | Freshness vs number of runs |
 | Topic partitions | Kafka | Parallelism (consumer is single-threaded today) |
 | Partitioning + snapshot retention | consumer / maintenance DAG | File count, metadata size |
 | dbt threads | dbt/profiles.yml | Transform parallelism |

@@ -42,11 +42,13 @@ demo:
 	$(COMPOSE) --profile tools run --rm dbt build
 	$(COMPOSE) exec -T trino trino --output-format=ALIGNED --execute "SELECT * FROM iceberg.analytics.mart_daily_reconciliation"
 
-# Load test: publish order chains, drain them in batches, rebuild, show health.
+# Load test: publish order chains, drain them, rebuild, show health.
+# Each consumer run drains the topic within its time budget; a few runs
+# absorb whatever the first one left behind.
 # Override volume with ORDERS=20000 make bench
 bench:
-	python3 scripts/loadgen.py --orders ${ORDERS:-5000}
-	for i in $(seq 1 $(( (${ORDERS:-5000} * 21 / 10 + 99) / 100 + 20 ))); do \
+	python3 scripts/loadgen.py --orders $${ORDERS:-5000}
+	for i in 1 2 3; do \
 		$(COMPOSE) exec -T airflow-standalone env -u PYTHONPATH -u LD_PRELOAD PYTHONNOUSERSITE=1 \
 			/home/airflow/iceberg_env/bin/python /opt/airflow/dags/kafka_to_iceberg_run.py; \
 	done
