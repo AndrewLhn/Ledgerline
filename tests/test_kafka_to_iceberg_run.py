@@ -64,6 +64,7 @@ class FakeConsumer:
     def __init__(self, script):
         self.script = list(script)
         self.committed = 0
+        self.committed_offsets = None
         self.closed = False
 
     def subscribe(self, topics):
@@ -72,8 +73,9 @@ class FakeConsumer:
     def poll(self, timeout):
         return self.script.pop(0) if self.script else None
 
-    def commit(self, asynchronous=False):
+    def commit(self, asynchronous=False, offsets=None):
         self.committed += 1
+        self.committed_offsets = offsets
 
     def close(self):
         self.closed = True
@@ -158,6 +160,11 @@ class RunSyncTests(unittest.TestCase):
         self.assertEqual(table.num_rows, 2)
         self.assertEqual(table.column("event_id").to_pylist()[0], VALID_EVENTS[0]["event_id"])
         self.assertEqual(objects["consumer"].committed, 1)
+        offsets = objects["consumer"].committed_offsets
+        self.assertEqual(
+            [(tp.topic, tp.partition, tp.offset) for tp in offsets],
+            [("ledgerline_events", 0, 3)],
+        )
         self.assertTrue(objects["consumer"].closed)
 
     def test_audit_row_records_batch_counts(self):
@@ -171,6 +178,8 @@ class RunSyncTests(unittest.TestCase):
         self.assertEqual(audit["records_read"], 2)
         self.assertEqual(audit["records_written"], 1)
         self.assertEqual(audit["records_rejected"], 1)
+        # rejected messages advance the committed offset too
+        self.assertEqual(objects["consumer"].committed_offsets[0].offset, 3)
 
     def test_invalid_message_is_sent_to_dlq_with_location(self):
         script = [FakeMessage(b'{"event_id": "nope"}', offset=7), None]
@@ -218,14 +227,14 @@ class RunSyncTests(unittest.TestCase):
         self.assertIsInstance(error, RuntimeError)
         self.assertEqual(objects["consumer"].committed, 0)
 
-    def test_empty_batch_commits_without_writes_or_audit(self):
+    def test_empty_batch_skips_commit_writes_and_audit(self):
         result, error, objects = run_with_fakes([None])
 
         self.assertIsNone(error)
         self.assertEqual(result, 0)
         self.assertEqual(objects["events_table"].appended, [])
         self.assertEqual(objects["runs_table"].appended, [])
-        self.assertEqual(objects["consumer"].committed, 1)
+        self.assertEqual(objects["consumer"].committed, 0)
 
     def test_drain_continues_across_idle_gaps(self):
         script = [
@@ -251,7 +260,7 @@ class RunSyncTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual(result, 0)
         self.assertEqual(objects["events_table"].appended, [])
-        self.assertEqual(objects["consumer"].committed, 1)
+        self.assertEqual(objects["consumer"].committed, 0)
 
 
 if __name__ == "__main__":

@@ -59,6 +59,9 @@ Notable changes to this project. Format loosely follows Keep a Changelog.
 
 ### Fixed
 
+- The consumer commits explicit offsets of processed messages; relying on
+  implicitly stored offsets produced `_NO_OFFSET` commit failures on empty
+  or rebalanced sessions and turned one bad attempt into a retry storm.
 - E2E workflow: starts from empty volumes, waits for Airflow to parse the
   DAG, asserts DLQ counts exactly, and prints diagnostics on failure; it now
   also runs on pushes to main.
