@@ -62,6 +62,7 @@ def event_table_schema():
         NestedField(7, "kafka_partition", IntegerType()),
         NestedField(8, "kafka_offset", LongType()),
         NestedField(INGESTED_AT_FIELD_ID, "ingested_at", TimestamptzType()),
+        NestedField(10, "data", StringType()),
     )
 
 
@@ -152,6 +153,7 @@ def normalize_message(message) -> dict[str, object]:
         "kafka_partition": message.partition(),
         "kafka_offset": message.offset(),
         "ingested_at": datetime.now(UTC),
+        "data": json.dumps(validated_event["data"], separators=(",", ":"), sort_keys=True),
     }
 
 
@@ -252,10 +254,16 @@ def run_sync(
     records_read = 0
     rejected_count = 0
     idle = 0
+    # A cold consumer group can spend its first polls joining and fetching
+    # offsets; do not mistake that silence for an empty topic.
+    warmup_polls = 10
     try:
         while records_read < max_messages and time.monotonic() < deadline:
             message = consumer.poll(poll_timeout)
             if message is None:
+                if records_read == 0 and warmup_polls > 0:
+                    warmup_polls -= 1
+                    continue
                 idle += 1
                 if idle >= idle_polls:
                     break

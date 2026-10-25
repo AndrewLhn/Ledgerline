@@ -59,6 +59,12 @@ Notable changes to this project. Format loosely follows Keep a Changelog.
 
 ### Fixed
 
+- Consumer restores the event payload column (`data`) dropped in the pyiceberg
+  schema rewrite, and tolerates cold consumer-group polls before declaring the
+  topic empty (the drain loop could return zero rows on a fresh group).
+- `accepted_values` on the integer `schema_version` replaced with a type-safe
+  singular test: dbt quotes the value list, which Trino refuses to compare
+  against an integer column.
 - Catalog database roles: Trino's JDBC catalog migrates its registry schema
   with DDL, which Postgres permits only to table owners; separate
   least-privilege roles therefore broke dbt with "Cannot check and eventually

@@ -24,6 +24,7 @@ EVENT_ARROW_SCHEMA = pa.schema([
     ("kafka_partition", pa.int32()),
     ("kafka_offset", pa.int64()),
     ("ingested_at", pa.timestamp("us", tz="UTC")),
+    ("data", pa.string()),
 ])
 
 RUNS_ARROW_SCHEMA = pa.schema([
@@ -159,6 +160,9 @@ class RunSyncTests(unittest.TestCase):
         table = objects["events_table"].appended[0]
         self.assertEqual(table.num_rows, 2)
         self.assertEqual(table.column("event_id").to_pylist()[0], VALID_EVENTS[0]["event_id"])
+        self.assertEqual(
+            json.loads(table.column("data").to_pylist()[0])["amount_minor"], 10000
+        )
         self.assertEqual(objects["consumer"].committed, 1)
         offsets = objects["consumer"].committed_offsets
         self.assertEqual(
