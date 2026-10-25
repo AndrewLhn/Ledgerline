@@ -3,7 +3,7 @@
 # so pins cannot drift apart.
 confluent-kafka==2.12.2
 jsonschema==4.25.1
-numpy==1.26.4
+numpy==2.5.4
 prometheus-client==0.26.0
 psycopg2-binary==2.9.12
 pyarrow==14.0.1
