@@ -1,4 +1,4 @@
 # dbt-core is pinned explicitly: dbt-trino allows a wide range (>=1.8,<2.0),
 # and a floating dbt-core made image builds non-reproducible. Bump both together.
-dbt-core==1.10.23
+dbt-core==1.12.6
 dbt-trino==1.10.6
