@@ -215,8 +215,8 @@ def push_batch_metrics(records_read, records_written, rejected, duration_seconds
         push_to_gateway(
             PUSHGATEWAY_URL, job="ledgerline_ingest", registry=registry, timeout=5
         )
-    except Exception:
-        LOGGER.warning("metrics_push_failed", exc_info=True)
+    except Exception as error:  # noqa: BLE001 - metrics must never break ingestion
+        LOGGER.warning("metrics_push_failed", extra={"reason": str(error)})
 
 
 def run_sync(
