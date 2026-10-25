@@ -16,9 +16,11 @@ Draw an explicit boundary and document it (docs/security.md):
 
 - Secrets live only in `.env` (git-ignored, required by compose).
 - PostgreSQL is published on loopback only.
-- The Iceberg catalog database gets dedicated roles: `iceberg` owns it
-  (consumer via pyiceberg), `trino` receives grants limited to catalog
-  tables. The Airflow metadata role is separate.
+- The Iceberg catalog database keeps separate logins per service (`iceberg`,
+  `trino`) for auditability, while a shared group role `catalog_owner` owns
+  all catalog objects: Trino's JDBC catalog migrates its registry schema with
+  DDL, which Postgres only permits to the owner. Both logins SET ROLE to
+  catalog_owner inside that database; the Airflow metadata role is separate.
 - Kafka, Trino, and MinIO stay unauthenticated inside the compose network;
   only Kafka (9092), Trino (8082), MinIO (9000/9001), Airflow (8080), and
   Grafana (3000) are published, for local tooling.

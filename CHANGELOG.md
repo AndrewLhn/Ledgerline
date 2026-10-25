@@ -59,6 +59,11 @@ Notable changes to this project. Format loosely follows Keep a Changelog.
 
 ### Fixed
 
+- Catalog database roles: Trino's JDBC catalog migrates its registry schema
+  with DDL, which Postgres permits only to table owners; separate
+  least-privilege roles therefore broke dbt with "Cannot check and eventually
+  update SQL schema". Ownership now sits in a shared `catalog_owner` group
+  role while logins stay per-service (ADR-007).
 - The consumer commits explicit offsets of processed messages; relying on
   implicitly stored offsets produced `_NO_OFFSET` commit failures on empty
   or rebalanced sessions and turned one bad attempt into a retry storm.

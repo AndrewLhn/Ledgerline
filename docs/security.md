@@ -9,10 +9,12 @@ goal is a deliberate, documented boundary rather than production hardening.
   (`:?` interpolation fails fast when a variable is missing). No credentials
   are committed.
 - PostgreSQL is published on the loopback interface only (127.0.0.1:5432).
-- The Iceberg catalog database has dedicated roles: `iceberg` (owner, used by
-  the consumer through pyiceberg) and `trino` (used by Trino's JDBC catalog
-  with grants limited to catalog tables). The Airflow metadata role does not
-  own the catalog database and vice versa.
+- The Iceberg catalog database uses separate logins for pyiceberg (`iceberg`)
+  and Trino (`trino`), but a shared group role `catalog_owner` owns all
+  catalog objects: Trino's JDBC catalog performs schema migrations, which
+  require ownership of the registry tables pyiceberg creates. Both logins
+  SET ROLE to catalog_owner inside the catalog database only; the Airflow
+  metadata role never touches it and vice versa.
 - Airflow's Python environment is isolated from Iceberg dependencies (separate
   venv in the image), so a dependency bump cannot silently break the
   scheduler.
