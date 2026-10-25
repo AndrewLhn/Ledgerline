@@ -9,4 +9,4 @@ psycopg2-binary==2.9.12
 pyarrow==14.0.1
 # 0.6.0 depended on mmhash3, which ships no cp312 wheels and cannot build
 # from source on Python 3.12; 0.8.x uses mmh3 and keeps the pyarrow 14 range.
-pyiceberg[sql-postgres,pyarrow]==0.8.1
+pyiceberg[sql-postgres,pyarrow]==0.12.0
