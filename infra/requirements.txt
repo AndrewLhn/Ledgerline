@@ -1,7 +1,7 @@
 # Runtime dependencies of the Kafka-to-Iceberg batch consumer.
 # Shared by the Airflow image venv (Dockerfile) and host-side runs (infra/consumer.py),
 # so pins cannot drift apart.
-confluent-kafka==2.12.2
+confluent-kafka==2.16.0
 jsonschema==4.25.1
 numpy==1.26.4
 prometheus-client==0.26.0
