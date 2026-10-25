@@ -34,6 +34,6 @@ select
     event_payload,
     kafka_partition,
     kafka_offset,
-    md5(concat(source_event_id, '|', event_payload)) as event_hash
+    to_hex(md5(to_utf8(concat(source_event_id, '|', event_payload)))) as event_hash
 from deduplicated_events
 where row_number = 1
