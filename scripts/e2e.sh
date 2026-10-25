@@ -23,7 +23,10 @@ check_eq() {
 }
 
 query_scalar() {
-  "${compose[@]}" exec -T trino trino --output-format CSV_HEADER --execute "$1" | tail -n 1 | tr -d "\r"
+  # Trino CLI quotes CSV fields; strip the surrounding quotes so values
+  # compare as plain strings in check_eq.
+  "${compose[@]}" exec -T trino trino --output-format CSV_HEADER --execute "$1" \
+    | tail -n 1 | tr -d "\r" | sed -e 's/^"//' -e 's/"$//'
 }
 
 log "Resetting previous stack state (volumes included)"
