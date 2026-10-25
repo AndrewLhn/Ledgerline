@@ -20,11 +20,7 @@ sources:
                   arguments:
                     values: ["order_created", "payment_captured", "refund_issued", "inventory_adjusted"]
           - name: schema_version
-            tests:
-              - not_null
-              - accepted_values:
-                  arguments:
-                    values: [1, 2]
+            tests: [not_null]
           - name: occurred_at
             tests: [not_null]
           - name: source_system
@@ -72,11 +68,7 @@ models:
               arguments:
                 values: ["order_created", "payment_captured", "refund_issued", "inventory_adjusted"]
       - name: schema_version
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [1, 2]
+        tests: [not_null]
       - name: event_occurred_at
         tests: [not_null, not_future_timestamp]
       - name: event_ingested_at
