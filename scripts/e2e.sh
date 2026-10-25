@@ -31,7 +31,9 @@ log "Resetting previous stack state (volumes included)"
 
 log "Starting the stack"
 # --wait blocks until every healthchecked service (including airflow-standalone) is ready.
-"${compose[@]}" up -d --build --wait
+# --wait-timeout makes a stuck service fail fast, with its name in the error,
+# instead of letting the job idle until the workflow timeout cancels it.
+"${compose[@]}" up -d --build --wait --wait-timeout 420
 
 log "Waiting for Airflow to parse the DAG"
 dag_ready=""
