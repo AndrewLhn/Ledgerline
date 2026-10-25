@@ -5,7 +5,7 @@ confluent-kafka==2.16.0
 jsonschema==4.25.1
 numpy==1.26.4
 prometheus-client==0.26.0
-psycopg2-binary==2.9.12
+psycopg2-binary==2.9.13
 pyarrow==14.0.1
 # 0.6.0 depended on mmhash3, which ships no cp312 wheels and cannot build
 # from source on Python 3.12; 0.8.x uses mmh3 and keeps the pyarrow 14 range.
