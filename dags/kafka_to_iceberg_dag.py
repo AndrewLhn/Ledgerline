@@ -10,8 +10,8 @@ with DAG(
     schedule="@hourly",
     catchup=False,
     default_args={
-        "retries": 3,
-        "retry_delay": timedelta(minutes=5),
+        "retries": 2,
+        "retry_delay": timedelta(minutes=2),
         "execution_timeout": timedelta(minutes=5),
     },
     tags=["kafka", "iceberg"],

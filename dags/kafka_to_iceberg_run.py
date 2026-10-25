@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pyarrow as pa
-from confluent_kafka import Consumer, Producer
+from confluent_kafka import Consumer, Producer, TopicPartition
 from ledgerline_contract import ContractValidationError, validate_event
 
 TABLE_IDENTIFIER = "ledgerline_raw.events"
@@ -248,6 +248,7 @@ def run_sync(
     consumer.subscribe([TOPIC])
 
     batch: list[dict[str, object]] = []
+    consumed: list = []
     records_read = 0
     rejected_count = 0
     idle = 0
@@ -263,6 +264,7 @@ def run_sync(
                 raise RuntimeError(f"Kafka error: {message.error()}")
             idle = 0
             records_read += 1
+            consumed.append(message)
             try:
                 batch.append(normalize_message(message))
             except ContractValidationError as error:
@@ -279,7 +281,20 @@ def run_sync(
 
         if batch:
             table.append(pa.Table.from_pylist(batch, schema=event_arrow_schema()))
-        consumer.commit(asynchronous=False)
+        if consumed:
+            # Commit exactly what was processed. Relying on implicitly stored
+            # offsets fails with _NO_OFFSET on empty or rebalanced sessions;
+            # explicit offsets make the commit deterministic and replay-safe.
+            last_offsets: dict[tuple[str, int], int] = {}
+            for message in consumed:
+                last_offsets[(message.topic(), message.partition())] = message.offset() + 1
+            consumer.commit(
+                offsets=[
+                    TopicPartition(topic, partition, offset)
+                    for (topic, partition), offset in sorted(last_offsets.items())
+                ],
+                asynchronous=False,
+            )
         finished_at = datetime.now(UTC)
         LOGGER.info(
             "kafka_batch_committed",
