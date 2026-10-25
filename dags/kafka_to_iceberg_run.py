@@ -96,8 +96,7 @@ def get_table(catalog):
     from pyiceberg.partitioning import PartitionField, PartitionSpec
     from pyiceberg.transforms import DayTransform
 
-    if not catalog.namespace_exists("ledgerline_raw"):
-        catalog.create_namespace("ledgerline_raw")
+    catalog.create_namespace_if_not_exists("ledgerline_raw")
 
     schema = event_table_schema()
     try:
@@ -129,8 +128,7 @@ def get_table(catalog):
 def get_runs_table(catalog):
     from pyiceberg.exceptions import NoSuchTableError
 
-    if not catalog.namespace_exists("ledgerline_raw"):
-        catalog.create_namespace("ledgerline_raw")
+    catalog.create_namespace_if_not_exists("ledgerline_raw")
     try:
         return catalog.load_table(RUNS_TABLE_IDENTIFIER)
     except NoSuchTableError:
