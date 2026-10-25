@@ -11,9 +11,9 @@ clean-targets: ["target", "dbt_packages", "logs"]
 
 models:
   ledgerline:
+    # Models land in the profile's target schema (analytics). Adding a custom
+    # +schema here would concatenate into analytics_analytics.
     staging:
       +materialized: table
-      +schema: analytics
     marts:
       +materialized: table
-      +schema: analytics
