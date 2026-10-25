@@ -44,6 +44,28 @@ jobs:
             fi
           fi
           python scripts/check_contract_compat.py $args
+      - name: pyiceberg API surface
+        run: |
+          pip install -r infra/requirements.txt
+          python - <<'PY'
+          from pyiceberg.catalog import Catalog
+          from pyiceberg.table import Table
+
+          expected = {
+              Catalog: [
+                  "create_namespace_if_not_exists",
+                  "load_table",
+                  "create_table",
+                  "commit_table",
+              ],
+              Table: ["append", "update_schema", "manage_snapshots"],
+          }
+          for cls, names in expected.items():
+              missing = [name for name in names if not hasattr(cls, name)]
+              if missing:
+                  raise SystemExit(f"{cls.__name__} lost API: {missing}")
+          print("pyiceberg API surface OK")
+          PY
       - run: python -c "from infra.producer import main"
       - run: ruff check dags infra scripts tests
       - name: Build Airflow image
