@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 WORKDIR /usr/app
 ENV DBT_PROFILES_DIR=/usr/app \
